@@ -6,6 +6,7 @@ import BigNumber from 'bignumber.js';
 
 export interface IBid {
   id: string;
+  comment: string;
   bidder: {
     id: string;
   };
@@ -22,6 +23,7 @@ export interface IBid {
 }
 
 interface ProposalVote {
+  reason: string;
   supportDetailed: 0 | 1 | 2;
   voter: {
     id: string;
@@ -34,6 +36,7 @@ export interface ProposalVotes {
 
 export interface Delegate {
   id: string;
+  delegatedVotes?: string;
   nounsRepresented: {
     id: string;
   }[];
@@ -99,7 +102,98 @@ export const proposalsQuery = (first = 1_000) => gql`
 
 export const bigNounsProposalsQuery = (first = 1_000) => gql`
 {
-daa: proposals(first: ${first}, orderBy: createdBlock, orderDirection: asc) {
+  nounsProps: proposals(first: ${first}, orderBy: createdBlock, orderDirection: asc) {
+    id
+    description
+    status
+    proposalThreshold
+    quorumVotes
+    forVotes
+    againstVotes
+    abstainVotes
+    createdTransactionHash
+    createdBlock
+    startBlock
+    endBlock
+    executionETA
+    targets
+    values
+    signatures
+    calldatas
+    proposer {
+      id
+    }
+  }
+}
+`;
+
+export const partialProposalsQuery = (first = 1_000) => gql`
+{
+  proposals(first: ${first}, orderBy: createdBlock, orderDirection: asc) {
+    id
+    title
+    status
+    forVotes
+    againstVotes
+    abstainVotes
+    createdBlock
+    createdTransactionHash
+    quorumVotes
+    executionETA
+    startBlock
+    endBlock
+  }
+}
+`;
+
+export const bigNounsPartialProposalsQuery = (first = 1_000) => gql`
+{
+  nounsProps: proposals(first: ${first}, orderBy: createdBlock, orderDirection: asc) {
+    id
+    title
+    status
+    forVotes
+    againstVotes
+    abstainVotes
+    createdTransactionHash
+    quorumVotes
+    executionETA
+    startBlock
+    endBlock
+  }
+}
+`;
+
+export const proposalQuery = (id: string | number) => gql`
+{
+  proposal(id: ${id}) {
+    id
+    description
+    status
+    proposalThreshold
+    quorumVotes
+    forVotes
+    againstVotes
+    abstainVotes
+    createdTransactionHash
+    createdBlock
+    startBlock
+    endBlock
+    executionETA
+    targets
+    values
+    signatures
+    calldatas
+    proposer {
+      id
+    }
+  }
+}
+`;
+
+export const bigNounsProposalQuery = (id: string | number) => gql`
+{
+  nounsProp: proposal(id: ${id}) {
     id
     description
     status
@@ -151,6 +245,7 @@ export const auctionQuery = (auctionId: number) => gql`
 	  }
 	  bids {
 		id
+    comment
 		blockNumber
 		txIndex
 		amount
@@ -163,6 +258,7 @@ export const bidsByAuctionQuery = (auctionId: string) => gql`
  {
 	bids(where:{auction: "${auctionId}"}) {
 	  id
+    comment
 	  amount
 	  blockNumber
 	  blockTimestamp
@@ -176,6 +272,28 @@ export const bidsByAuctionQuery = (auctionId: string) => gql`
 	}
   }
  `;
+
+export const bidsByAuctionQueryForWinningBid = (auctionId: string) => gql`
+{
+ bids(where:{auction: "${auctionId}", comment_not: null}, orderBy: amount, orderDirection: desc) {
+   id
+   comment
+   amount
+   blockNumber
+   blockTimestamp
+   txIndex
+   bidder {
+     id
+   }
+   noun {
+   id
+   owner {
+		id
+	  }
+   }
+ }
+ }
+`;
 
 export const nounQuery = (id: string) => gql`
  {
@@ -228,6 +346,7 @@ export const latestAuctionsQuery = (auctionStartTime: number) => gql`
       }
       bids {
         id
+        comment
         amount
         blockNumber
         blockTimestamp
@@ -258,6 +377,7 @@ export const latestBidsQuery = (first: number = 10) => gql`
 	  orderDirection: desc
 	) {
 	  id
+    comment
 	  bidder {
 		id
 	  }
@@ -337,6 +457,7 @@ export const proposalVotesQuery = (proposalId: string) => gql`
   {
     votes(where: { proposal: "${proposalId}", votesRaw_gt: 0 }) {
       supportDetailed
+      reason
       voter {
         id
       }
@@ -414,6 +535,7 @@ export const snapshotSingularProposalVotesQuery = (proposalId: string) => gql` {
     voter
     vp
     choice
+    reason
   }
 }
 `;
@@ -424,6 +546,7 @@ export const snapshotProposalVotesQuery = (snapshotProposalId: string) => gql`
     voter
     vp
     choice
+    reason
     }
 
   }
@@ -499,7 +622,15 @@ export const totalNounSupplyAtPropSnapshot = (proposalId: string) => gql`
 
 export const propUsingDynamicQuorum = (propoaslId: string) => gql`
 {
-  proposal(id: "${propoaslId}") {
+  lilnounsprop: proposal(id: "${propoaslId}") {
+    quorumCoefficient 
+  }
+}
+`;
+
+export const bigNounPropUsingDynamicQuorum = (propoaslId: string) => gql`
+{
+  nounsProp: proposal(id: "${propoaslId}") {
     quorumCoefficient 
   }
 }
@@ -688,7 +819,7 @@ export const BIG_NOUNS_GOVERNANCE_BY_OWNER_SUB = gql`
 
 export const activeProposals = (id: string) => gql`
   {
-    daaa: proposals(
+    activeProps: proposals(
       where: {
         status: "ACTIVE"
         votes_: { voter_contains: "${id}" }
@@ -719,6 +850,17 @@ export const activeProposals = (id: string) => gql`
       }
     }
   }
+`;
+
+
+export const ethPriceUSD = () => gql`
+  {
+    bundles(
+      where: { id: 1 }
+      ) {
+        ethPriceUSD
+      }
+    }
 `;
 
 export const clientFactory = (uri: string) =>

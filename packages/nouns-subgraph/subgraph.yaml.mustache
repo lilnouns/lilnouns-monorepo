@@ -13,7 +13,7 @@ dataSources:
       startBlock: {{nounsAuctionHouse.startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       file: ./src/nouns-auction-house.ts
       entities:
@@ -27,12 +27,41 @@ dataSources:
       eventHandlers:
         - event: AuctionCreated(indexed uint256,uint256,uint256)
           handler: handleAuctionCreated
-        - event: AuctionBid(indexed uint256,address,uint256,bool)
+        - event: AuctionBid(indexed uint256,address,uint256,bool,string)
           handler: handleAuctionBid
         - event: AuctionExtended(indexed uint256,uint256)
           handler: handleAuctionExtended
         - event: AuctionSettled(indexed uint256,address,uint256)
           handler: handleAuctionSettled
+  - kind: ethereum/contract
+    name: NounsAuctionHouseV1
+    network: {{network}}
+    source:
+      address: '{{nounsAuctionHouseV1.address}}'
+      abi: NounsAuctionHouse
+      startBlock: {{nounsAuctionHouseV1.startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      file: ./src/nouns-auction-house.ts
+      entities:
+        - Account
+        - Auction
+        - Bid
+        - Noun
+      abis:
+        - name: NounsAuctionHouse
+          file: ../nouns-contracts/abi/contracts/NounsAuctionHouseV1.sol/NounsAuctionHouse.json
+      eventHandlers:
+        - event: AuctionCreated(indexed uint256,uint256,uint256)
+          handler: handleAuctionCreatedV1
+        - event: AuctionBid(indexed uint256,address,uint256,bool)
+          handler: handleAuctionBidV1
+        - event: AuctionExtended(indexed uint256,uint256)
+          handler: handleAuctionExtendedV1
+        - event: AuctionSettled(indexed uint256,address,uint256)
+          handler: handleAuctionSettledV1
   - kind: ethereum/contract
     name: NounsToken
     network: {{network}}
@@ -42,7 +71,7 @@ dataSources:
       startBlock: {{nounsToken.startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       file: ./src/nouns-erc-721.ts
       entities:
@@ -72,7 +101,7 @@ dataSources:
       startBlock: {{nounsDAO.startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       file: ./src/nouns-dao.ts
       entities:
@@ -83,7 +112,7 @@ dataSources:
         - Governance
       abis:
         - name: NounsDAO
-          file: ../nouns-contracts/abi/contracts/governance/NounsDAOLogicV1.sol/NounsDAOLogicV1.json
+          file: ../nouns-contracts/abi/contracts/governance/NounsDAOLogicV2.sol/NounsDAOLogicV2.json
       eventHandlers:
         - event: ProposalCreatedWithRequirements(uint256,address,address[],uint256[],string[],bytes[],uint256,uint256,uint256,uint256,string)
           handler: handleProposalCreatedWithRequirements
@@ -97,3 +126,9 @@ dataSources:
           handler: handleProposalExecuted
         - event: VoteCast(indexed address,uint256,uint8,uint256,string)
           handler: handleVoteCast
+        - event: MinQuorumVotesBPSSet(uint16,uint16)
+          handler: handleMinQuorumVotesBPSSet
+        - event: MaxQuorumVotesBPSSet(uint16,uint16)
+          handler: handleMaxQuorumVotesBPSSet        
+        - event: QuorumCoefficientSet(uint32,uint32)
+          handler: handleQuorumCoefficientSet

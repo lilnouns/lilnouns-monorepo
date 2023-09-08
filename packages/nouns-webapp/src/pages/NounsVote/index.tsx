@@ -2,22 +2,22 @@ import { Row, Col, Button, Card, Spinner } from 'react-bootstrap';
 import Section from '../../layout/Section';
 import { ProposalState } from '../../wrappers/nounsDao';
 import {
-  useCurrentQuorum,
+  useCurrentBigNounQuorum,
   useExecuteBigNounProposal,
   useBigNounProposal,
   useQueueBigNounProposal,
 } from '../../wrappers/bigNounsDao';
 import { useUserVotesAsOfBlock } from '../../wrappers/nounToken';
 import classes from './NounsVote.module.css';
-import { RouteComponentProps } from 'react-router-dom';
+import { RouteComponentProps, useLocation } from 'react-router-dom';
 import { TransactionStatus, useBlockNumber } from '@usedapp/core';
 import { AlertModal, setAlertModal } from '../../state/slices/application';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import advanced from 'dayjs/plugin/advancedFormat';
-import SnapshotVoteModalModal from '../../components/SnapshotVoteModal';
-import React, { useCallback, useEffect, useState } from 'react';
+import SnapshotVoteModal from '../../components/SnapshotVoteModal';
+import { useCallback, useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import clsx from 'clsx';
 import ProposalHeader from '../../components/ProposalHeader';
@@ -37,6 +37,7 @@ import {
   snapshotSingularProposalVotesQuery,
   snapshotProposalsQuery,
   lilNounsHeldByVoterQuery,
+  bigNounPropUsingDynamicQuorum,
 } from '../../wrappers/subgraph';
 import { getNounVotes } from '../../utils/getNounsVotes';
 import { useQuery } from '@apollo/client';
@@ -56,8 +57,9 @@ dayjs.extend(advanced);
 export interface SnapshotVoters {
   voter: string;
   vp: number;
-  choice: number;
+  choice: 1 | 2 | 3;
   nounIds: string[];
+  reason?: string;
 }
 
 interface SnapshotProp {
@@ -74,12 +76,14 @@ interface SnapshotProp {
   snapshotVoters: SnapshotVoters[];
 }
 
+// TODO: txnlink addresses /  const txLink = buildEtherscanTxLink(bid.transactionHash);
+
 const NounsVotePage = ({
   match: {
     params: { id },
   },
 }: RouteComponentProps<{ id: string }>) => {
-  const {proposal, proposalCount} = useBigNounProposal(id);
+  const {proposal} = useBigNounProposal(id);
 
   const activeAccount = useAppSelector(state => state.account.activeAccount);
   const {
@@ -108,8 +112,10 @@ const NounsVotePage = ({
   }, {});
 
   const data = voters?.votes?.map(v => ({
+    reason: v.reason ?? '',
     delegate: v.voter.id,
     supportDetailed: v.supportDetailed,
+    delegatedVotes: delegates?.find(d => d.id === v.voter.id)?.delegatedVotes ?? '0',
     nounsRepresented: delegateToNounIds?.[v.voter.id] ?? [],
   }));
 
@@ -177,7 +183,7 @@ const NounsVotePage = ({
     data: dqInfo,
     loading: loadingDQInfo,
     error: dqError,
-  } = useQuery(propUsingDynamicQuorum(id ?? '0'), {
+  } = useQuery(bigNounPropUsingDynamicQuorum(id ?? '0'), {
     context: { clientName: 'NounsDAO' },
     skip: !proposal,
   });
@@ -217,10 +223,10 @@ const NounsVotePage = ({
     ? useUserVotesAsOfBlock(proposal?.createdBlock ?? undefined)
     : useUserVotesAsOfBlock(snapProp?.snapshot ?? undefined);
 
-  const currentQuorum = useCurrentQuorum(
+  const currentQuorum = useCurrentBigNounQuorum(
     config.bigNounsAddresses.nounsDAOProxy,
     proposal && proposal.id ? parseInt(proposal.id) : 0,
-    dqInfo && dqInfo.proposal ? dqInfo.proposal.quorumCoefficient === '0' : true,
+    dqInfo && dqInfo.nounsProp ? dqInfo.nounsProp.quorumCoefficient === '0' : true,
   );
 
   const hasSucceeded = proposal?.status === ProposalState.SUCCEEDED;
@@ -266,6 +272,36 @@ const NounsVotePage = ({
       }
     };
   })();
+
+    const [descriptionButtonActive, setDescriptionButtonActive] = useState('1');
+    const [isPropVotesToggled, setIsPropVotesToggled] = useState(false);
+  
+    function setPropDescription() {
+      setDescriptionButtonActive('1');
+      setIsPropVotesToggled(false);
+      window.history.pushState({}, 'Lil Nouns DAO', `/vote/nounsdao/${proposal?.id}/description`);
+    }
+  
+    function setPropVotes() {
+      setDescriptionButtonActive('2');
+      setIsPropVotesToggled(true);
+      window.history.pushState({}, 'Lil Nouns DAO', `/vote/nounsdao/${proposal?.id}/votes`);
+    }
+  
+    const location = useLocation();
+
+    const pageTitle = `${proposal?.title} - Nouns DAO Prop ${id}` ?? `Nouns DAO Prop ${id}`;
+  
+    useEffect(() => {
+      document.title = pageTitle;
+
+      if (!location.pathname) return;
+  
+      if (location.pathname.includes('votes')) {
+        setDescriptionButtonActive('2');
+        setIsPropVotesToggled(true);
+      }
+    }, [pageTitle]);
 
   const onTransactionStateChange = useCallback(
     (
@@ -353,9 +389,9 @@ const NounsVotePage = ({
   const forNouns = getNounVotes(data, 1);
   const againstNouns = getNounVotes(data, 0);
   const abstainNouns = getNounVotes(data, 2);
-  const isV2Prop = dqInfo.proposal.quorumCoefficient > 0;
+  const isV2Prop = dqInfo.nounsProp.quorumCoefficient > 0;
 
-  if (error || snapshotProposalError || snapshotVoteError || dqError) {
+  if (error /*|| snapshotProposalError*/ || snapshotVoteError || dqError) {
     return <>{'Failed to fetch'}</>;
   }
 
@@ -394,6 +430,7 @@ const NounsVotePage = ({
           vp: obj.vp,
           choice: obj.choice,
           nounIds: delegatedVoterRepresentedNounIds,
+          reason: obj.reason
         };
 
         return res;
@@ -493,7 +530,7 @@ const NounsVotePage = ({
           onDismiss={() => setShowDynamicQuorumInfoModal(false)}
         />
       )}
-      <SnapshotVoteModalModal
+      <SnapshotVoteModal
         show={showVoteModal}
         onHide={() => setShowVoteModal(false)}
         proposalId={proposal?.id}
@@ -505,7 +542,6 @@ const NounsVotePage = ({
           <ProposalHeader
             snapshotProposal={snapProp}
             proposal={proposal}
-            proposalCount={proposalCount}
             isNounsDAOProp={true}
             isActiveForVoting={isActiveForVoting}
             isWalletConnected={isWalletConnected}
@@ -536,8 +572,7 @@ const NounsVotePage = ({
 
         <p
           onClick={() => {
-            //TODO: implement delegate view
-
+            
             if (isDelegateView) {
               setIsDelegateView(false);
               if (snapProp) {
@@ -704,7 +739,44 @@ const NounsVotePage = ({
           </Col>
         </Row>
 
-        <ProposalContent proposal={proposal} />
+        <div className={classes.section}>
+          <div>
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="d-flex justify-content-start align-items-start">
+                <h5>{isPropVotesToggled ? 'Votes' : 'Description'}</h5>
+              </div>
+
+              <div className="d-flex justify-content-end align-items-end">
+                <div className="btn-toolbar" role="btn-toolbar" aria-label="Basic example">
+                  <Button
+                    key={1}
+                    className={
+                      descriptionButtonActive === '1'
+                        ? classes.governanceSwitchBtnActive
+                        : classes.governanceSwitchBtn
+                    }
+                    id={'1'}
+                    onClick={e => setPropDescription()}
+                  >
+                    Description
+                  </Button>
+                  <Button
+                    key={2}
+                    className={
+                      descriptionButtonActive === '2'
+                        ? classes.governanceSwitchBtn2Active
+                        : classes.governanceSwitchBtn2
+                    }
+                    onClick={e => setPropVotes()}
+                  >
+                    Votes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ProposalContent proposal={proposal} isVotesToggled={isPropVotesToggled} votes={data} metagovVotes={fetchedValues.snapshotVoters} isNounsDAOProp={true}/>
       </Col>
     </Section>
   );

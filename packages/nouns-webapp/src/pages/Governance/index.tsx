@@ -12,11 +12,12 @@ import NounImageInlineTable from '../../components/NounImageInlineTable';
 import { isMobileScreen } from '../../utils/isMobile';
 import { useEffect, useState } from 'react';
 
-import { snapshotProposalsQuery, nounsInTreasuryQuery } from '../../wrappers/subgraph';
+import { snapshotProposalsQuery, nounsInTreasuryQuery, ethPriceUSD } from '../../wrappers/subgraph';
 import { useQuery } from '@apollo/client';
 import Link from '../../components/Link';
 import { RouteComponentProps } from 'react-router-dom';
 import { useLocation } from 'react-router-dom'
+import { ethers } from 'ethers';
 
 const GovernancePage = ({
   match: {
@@ -58,6 +59,14 @@ const GovernancePage = ({
 
   const isMobile = isMobileScreen();
 
+  const { loading: loadingPriceFetch, error: priceFetchError , data: priceFetchData } = useQuery(ethPriceUSD(), {
+    context: { clientName: 'Uniswap' },
+  });
+
+  const treasuryBalanceETH = Number(
+    ethers.utils.formatEther(useTreasuryBalance()?.toString() || '0'),
+  );
+
   function setLilNounsDAOProps() {
     setDaoButtonActive('1');
     setisNounsDAOProp(false);
@@ -72,13 +81,15 @@ const GovernancePage = ({
 
   const location = useLocation();
 
+  const pageTitle = "Governance - Lil Nouns DAO";
+
   useEffect(() => {
     if (!location.pathname) return;
-
+    document.title = pageTitle;
     if (location.pathname == '/vote/nounsdao') {
       setNounsDAOProps();
     }
-  }, []);
+  }, [pageTitle]);
 
   const nounsDaoLink = <Link text="Nouns DAO" url="https://nouns.wtf" leavesPage={true} />;
   const snapshotLink = (
@@ -90,7 +101,8 @@ const GovernancePage = ({
     snapshotProposalLoading ||
     loadingBigNounProposals ||
     loadingProposals ||
-    loadingProposalVotes
+    loadingProposalVotes ||
+    loadingPriceFetch
   ) {
     return (
       <div className={classes.spinner}>
@@ -99,7 +111,7 @@ const GovernancePage = ({
     );
   }
 
-  const nounCount = nounsInTreasury.accounts.length ? nounsInTreasury.accounts[0].tokenBalance : "0"
+  const nounCount = nounsInTreasury.accounts.length ? nounsInTreasury.accounts[0].tokenBalance : 0
   // const nounIds = nounsInTreasury.accounts[0].nouns.flatMap(
   //   (obj: { id: any }) => obj.id,
   // )
@@ -115,6 +127,8 @@ const GovernancePage = ({
     : [];
 
   const nounBreakdown = `${nounCount} owned/${delegatedNounCount} delegated`
+
+  const tokenPrice = !treasuryBalanceUSD && priceFetchData.bundles ? priceFetchData.bundles[0].ethPriceUSD * treasuryBalanceETH : treasuryBalanceUSD
 
   return (
     <Section fullWidth={false} className={classes.section}>
@@ -194,8 +208,8 @@ const GovernancePage = ({
                   <Col className={classes.usdTreasuryAmt}>
                     <h1 className={classes.usdBalance}>
                       ${' '}
-                      {treasuryBalanceUSD &&
-                        Number(treasuryBalanceUSD.toFixed(0)).toLocaleString('en-US')}
+                      {tokenPrice &&
+                        Number(tokenPrice.toFixed(0)).toLocaleString('en-US')}
                     </h1>
                   </Col>
                 </Row>

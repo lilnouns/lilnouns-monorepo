@@ -1,4 +1,4 @@
-import { Button, Spinner } from 'react-bootstrap';
+import { Button, FloatingLabel, FormControl, Spinner } from 'react-bootstrap';
 import SolidColorBackgroundModal from '../SolidColorBackgroundModal';
 import classes from './SnapshotVoteModal.module.css';
 import { useCallback, useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import { SnapshotProposal } from '../Proposals';
 import snapshot from '@snapshot-labs/snapshot.js';
 import { ethers } from 'ethers';
+import { Vote as SnapshotVoteType } from '@snapshot-labs/snapshot.js/dist/sign/types';
 
 interface SnapshotVoteModalProps {
   show: boolean;
@@ -25,7 +26,7 @@ export enum SnapshotVote {
 
 const POST_SUCESSFUL_VOTE_MODAL_CLOSE_TIME_MS = 5000;
 
-const SnapshotVoteModalModal = ({
+const SnapshotVoteModal = ({
   show,
   onHide,
   proposalId,
@@ -36,9 +37,9 @@ const SnapshotVoteModalModal = ({
   const client = new snapshot.Client712(hub);
 
   const { library, account } = useEthers();
-  const providers = new ethers.providers.Web3Provider(library?.provider!);
 
   const [vote, setVote] = useState<SnapshotVote>();
+  const [voteReason, setVoteReason] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [isVoteSucessful, setIsVoteSuccessful] = useState(false);
@@ -46,50 +47,22 @@ const SnapshotVoteModalModal = ({
   const [failureCopy, setFailureCopy] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const getVoteErrorMessage = (error: string | undefined) => {
-    if (error?.match(/voter already voted/)) {
-      return 'User Already Voted';
-    }
-    return error;
-  };
+  async function snapVote(proposalSnapshotId: string, vote: number, voteReason?: string) {
 
-  const handleVoteStateChange = useCallback((state: TransactionStatus) => {
-    switch (state.status) {
-      case 'None':
-        setIsLoading(false);
-        break;
-      case 'Mining':
-        setIsLoading(true);
-        break;
-      case 'Success':
-        setIsLoading(false);
-        setIsVoteSuccessful(true);
-        break;
-      case 'Fail':
-        setFailureCopy('Transaction Failed');
-        setErrorMessage(state?.errorMessage || 'Please try again.');
-        setIsLoading(false);
-        setIsVoteFailed(true);
-        break;
-      case 'Exception':
-        setFailureCopy('Error');
-        setErrorMessage(getVoteErrorMessage(state?.errorMessage) || 'Please try again.');
-        setIsLoading(false);
-        setIsVoteFailed(true);
-        break;
-    }
-  }, []);
+    const voteObject: SnapshotVoteType = {
+      space: 'leagueoflils.eth',
+      proposal: proposalSnapshotId,
+      type: 'single-choice',
+      choice: vote,
+      app: 'snapshot',
+    };
 
-  async function snapVote(proposalSnapshotId: string, vote: number) {
-    // console.log(`proposalSnapshotId: ${proposalSnapshotId}`)
+    if (voteReason) {
+      voteObject.reason = voteReason;
+    }
+
     return await client
-      .vote(new ethers.providers.Web3Provider(library?.provider!), account!, {
-        space: 'leagueoflils.eth',
-        proposal: proposalSnapshotId,
-        type: 'single-choice',
-        choice: vote,
-        app: 'snapshot',
-      })
+      .vote(new ethers.providers.Web3Provider(library?.provider!), account!, voteObject)
       .then(res => {
         // console.log(`snapVote response ${JSON.stringify(res)}`);
         setIsLoading(false);
@@ -214,6 +187,16 @@ const SnapshotVoteModalModal = ({
             />
           </div>
           <br />
+          <FloatingLabel controlId="reasonTextarea" label="Reason (Optional)">
+            <FormControl
+              as="textarea"
+              placeholder={`Reason for voting ${SnapshotVote[vote ?? SnapshotVote.FOR]}`}
+              value={voteReason}
+              onChange={e => setVoteReason(e.target.value)}
+              className={classes.voteReasonTextarea}
+            />
+          </FloatingLabel>
+          <br />
           <Button
             onClick={async () => {
               if (vote === undefined || !proposalId || isLoading) {
@@ -221,7 +204,12 @@ const SnapshotVoteModalModal = ({
               }
               setIsLoading(true);
 
-              return await snapVote(snapshotProposal.id, vote);
+                if (voteReason.trim() === '') {
+                return await snapVote(snapshotProposal.id, vote);
+              } else {
+                return await snapVote(snapshotProposal.id, vote, voteReason);
+              }
+
             }}
             className={classes.submitBtn}
           >
@@ -253,4 +241,4 @@ const SnapshotVoteModalModal = ({
     </>
   );
 };
-export default SnapshotVoteModalModal;
+export default SnapshotVoteModal;

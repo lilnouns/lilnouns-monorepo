@@ -123,6 +123,10 @@ const zoraAPILink = new HttpLink({
   uri: 'https://api.zora.co/graphql',
 });
 
+const uniswapAPILink = new HttpLink({
+  uri: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+});
+
 //pass them to apollo-client config
 const client = new ApolloClient({
   link: ApolloLink.split(
@@ -134,7 +138,15 @@ const client = new ApolloClient({
       ApolloLink.split(
         operation => operation.getContext().clientName === 'ZoraAPI',
         zoraAPILink,
-        defaultLink,
+        ApolloLink.split(
+          operation => operation.getContext().clientName === 'LilNounsDAO',
+          defaultLink,
+          ApolloLink.split(
+            operation => operation.getContext().clientName === 'Uniswap',
+            uniswapAPILink,
+            defaultLink,
+          ),
+        ),
       ),
     ),
   ),
@@ -161,7 +173,7 @@ const ChainSubscriber: React.FC = () => {
       wsProvider,
     );
 
-    const bidFilter = nounsAuctionHouseContract.filters.AuctionBid(null, null, null, null);
+    const bidFilter = nounsAuctionHouseContract.filters.AuctionBid(null, null, null, null, null);
     const extendedFilter = nounsAuctionHouseContract.filters.AuctionExtended(null, null);
     const createdFilter = nounsAuctionHouseContract.filters.AuctionCreated(null, null, null);
     const settledFilter = nounsAuctionHouseContract.filters.AuctionSettled(null, null, null);
@@ -170,12 +182,16 @@ const ChainSubscriber: React.FC = () => {
       sender: string,
       value: BigNumberish,
       extended: boolean,
+      comment: string,
       event: any,
     ) => {
       const timestamp = (await event.getBlock()).timestamp;
       const transactionHash = event.transactionHash;
+      // const comment = event.comment;
       dispatch(
-        appendBid(reduxSafeBid({ nounId, sender, value, extended, transactionHash, timestamp })),
+        appendBid(
+          reduxSafeBid({ nounId, sender, value, extended, comment, transactionHash, timestamp }),
+        ),
       );
     };
     const processAuctionCreated = (
@@ -213,11 +229,15 @@ const ChainSubscriber: React.FC = () => {
     const previousBids = await nounsAuctionHouseContract.queryFilter(bidFilter, 0 - BLOCKS_PER_DAY);
     for (const event of previousBids) {
       if (event.args === undefined) return;
-      processBidFilter(...(event.args as [BigNumber, string, BigNumber, boolean]), event);
+      // processBidFilter(...(event.args as [BigNumber, string, BigNumber, boolean]), event);
+      processBidFilter(
+        ...(event.args.slice(0, 5) as [BigNumber, string, BigNumber, boolean, string]),
+        event,
+      );
     }
 
-    nounsAuctionHouseContract.on(bidFilter, (nounId, sender, value, extended, event) =>
-      processBidFilter(nounId, sender, value, extended, event),
+    nounsAuctionHouseContract.on(bidFilter, (nounId, comment, sender, value, extended, event) =>
+      processBidFilter(nounId, comment, sender, value, extended, event),
     );
     nounsAuctionHouseContract.on(createdFilter, (nounId, startTime, endTime) =>
       processAuctionCreated(nounId, startTime, endTime),

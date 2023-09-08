@@ -55,6 +55,8 @@ export const CHAIN_ID: SupportedChains = parseInt(process.env.REACT_APP_CHAIN_ID
 
 export const ETHERSCAN_API_KEY = process.env.REACT_APP_ETHERSCAN_API_KEY ?? '';
 
+export const WALLET_CONNECT_V2_PROJECT_ID = process.env.REACT_APP_WALLET_CONNECT_V2_PROJECT_ID ?? '';
+
 const INFURA_PROJECT_ID = process.env.REACT_APP_INFURA_PROJECT_ID;
 const ALCHEMY_PROJECT_ID = process.env.REACT_APP_ALCHEMY_PROJECT_ID;
 
@@ -116,8 +118,8 @@ const app: Record<SupportedChains, AppConfig> = {
   [ChainId.Mainnet]: {
     jsonRpcUri: createNetworkHttpUrl('mainnet'),
     wsRpcUri: createNetworkWsUrl('mainnet'),
-    subgraphApiUri: 'https://api.goldsky.com/api/public/project_cldjvjgtylso13swq3dre13sf/subgraphs/lil-nouns-subgraph/1.0.0/gn',
-    nounsDAOSubgraphApiUri: 'https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/0.1.0/gn',
+    subgraphApiUri: 'https://api.goldsky.com/api/public/project_cldjvjgtylso13swq3dre13sf/subgraphs/lil-nouns-subgraph/1.0.4/gn',
+    nounsDAOSubgraphApiUri: 'https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/nouns/0.2.0/gn',
     enableHistory: process.env.REACT_APP_ENABLE_HISTORY === 'true',
     nounsApiUri: process.env[`REACT_APP_MAINNET_NOUNSAPI`] || '',
     enableRollbar: process.env.REACT_APP_ENABLE_ROLLBAR === 'true',
