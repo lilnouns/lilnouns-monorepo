@@ -19,6 +19,7 @@ import { useQuery } from '@apollo/client';
 import { activeProposals, partialProposalsQuery, proposalQuery, proposalsQuery } from './subgraph';
 import BigNumber from 'bignumber.js';
 import { useBlockTimestamp } from '../hooks/useBlockTimestamp';
+import { NounsDaoLogicV2Factory } from '@lilnounsdao/contracts';
 
 export enum Vote {
   AGAINST = 0,
@@ -50,6 +51,7 @@ export interface ProposalCallResult {
   canceled: boolean;
   vetoed: boolean;
   executed: boolean;
+  createdBlock: EthersBN;
   startBlock: EthersBN;
   endBlock: EthersBN;
   eta: EthersBN;
@@ -121,6 +123,7 @@ export interface PartialProposalSubgraphEntity {
   againstVotes: string;
   abstainVotes: string;
   createdTransactionHash: string;
+  createdBlock: string;
   startBlock: string;
   endBlock: string;
   executionETA: string | null;
@@ -166,7 +169,7 @@ export interface DynamicQuorumParams {
 }
 
 const abi = new utils.Interface(NounsDAOV2ABI);
-const nounsDaoContract = new NounsDaoLogicV1Factory().attach(config.addresses.nounsDAOProxy);
+const nounsDaoContract = new NounsDaoLogicV2Factory().attach(config.addresses.nounsDAOProxy);
 
 // Start the log search at the mainnet deployment block to speed up log queries
 const fromBlock = CHAIN_ID === ChainId.Mainnet ? 12985453 : 0;
@@ -427,6 +430,7 @@ export const formatPartialSubgraphProposal = (
     id: proposal.id,
     title: proposal.title ?? 'Untitled',
     status: getProposalState(blockNumber, new Date((timestamp ?? 0) * 1000), proposal),
+    createdBlock: parseInt(proposal.startBlock),
     startBlock: parseInt(proposal.startBlock),
     endBlock: parseInt(proposal.endBlock),
     forCount: parseInt(proposal.forVotes),
@@ -545,8 +549,8 @@ export const useAllProposalsViaChain = (skip = false): PartialProposalData => {
           id: proposal?.id.toString(),
           title: R.pipe(extractTitle, removeMarkdownStyle)(description) ?? 'Untitled',
           status: proposalStates[i]?.[0] ?? ProposalState.UNDETERMINED,
-
-          createdBlock: parseInt(proposal?.startBlock.sub(votingDelay ?? 0)?.toString() ?? ''),
+          
+          createdBlock: parseInt(proposal?.createdBlock?.toString() ?? ''),
           startBlock: parseInt(proposal?.startBlock?.toString() ?? ''),
           endBlock: parseInt(proposal?.endBlock?.toString() ?? ''),
           forCount: parseInt(proposal?.forVotes?.toString() ?? '0'),
