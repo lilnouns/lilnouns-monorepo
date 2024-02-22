@@ -59,7 +59,7 @@
     "graphql": "^15.5.1",
     "graphql-import-node": "0.0.5",
     "graphql-scalars": "^1.20.1",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "moment": "^2.29.4",
     "nft.storage": "^2.1.1",
     "prisma": "^4.7.1",
